@@ -1,14 +1,17 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useAuth } from "@/hooks/useAuth";
 
-const Index = () => {
+export default function Index() {
+  const { profile } = useAuth();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="flex h-full flex-col items-center justify-center p-8 animate-fade-in">
+      <h1 className="font-display text-5xl font-bold tracking-tight">TEAM FOCUS</h1>
+      <p className="mt-3 text-lg text-muted-foreground">Virtual Entertainment Community</p>
+      {profile && (
+        <p className="mt-6 text-sm text-muted-foreground">
+          Welcome back, <span className="font-medium text-foreground">{profile.display_name || "User"}</span>
+        </p>
+      )}
     </div>
   );
-};
-
-export default Index;
+}
