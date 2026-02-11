@@ -11,6 +11,7 @@ import Board from "./pages/Board";
 import Chat from "./pages/Chat";
 import Notice from "./pages/Notice";
 import MyPage from "./pages/MyPage";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { ReactNode } from "react";
 
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/notice" element={<ProtectedRoute><Notice /></ProtectedRoute>} />
             <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

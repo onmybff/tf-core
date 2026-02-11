@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_rooms: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           content: string
@@ -51,21 +72,32 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          room_id: string | null
           user_id: string
         }
         Insert: {
           content: string
           created_at?: string
           id?: string
+          room_id?: string | null
           user_id: string
         }
         Update: {
           content?: string
           created_at?: string
           id?: string
+          room_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notices: {
         Row: {
@@ -131,6 +163,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          is_banned: boolean
           updated_at: string
           user_id: string
         }
@@ -140,6 +173,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          is_banned?: boolean
           updated_at?: string
           user_id: string
         }
@@ -149,6 +183,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          is_banned?: boolean
           updated_at?: string
           user_id?: string
         }

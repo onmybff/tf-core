@@ -29,8 +29,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AuthContext["profile"]>(null);
 
   const fetchProfile = async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("display_name, bio, avatar_url").eq("user_id", uid).single();
-    if (data) setProfile(data);
+    const { data } = await supabase.from("profiles").select("display_name, bio, avatar_url, is_banned").eq("user_id", uid).single();
+    if (data) {
+      if (data.is_banned) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+      setProfile(data);
+    }
   };
 
   const fetchRole = async (uid: string) => {
