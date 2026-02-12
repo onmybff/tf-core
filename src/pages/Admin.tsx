@@ -32,6 +32,13 @@ interface Notice {
   created_at: string;
 }
 
+interface ChatRoomRow {
+  id: string;
+  name: string;
+  created_by: string;
+  created_at: string;
+}
+
 export default function Admin() {
   const { isAdmin, loading } = useAuth();
 
@@ -45,9 +52,11 @@ export default function Admin() {
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="notices">Notices</TabsTrigger>
+          <TabsTrigger value="chatrooms">Chat Rooms</TabsTrigger>
         </TabsList>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="notices"><NoticesTab /></TabsContent>
+        <TabsContent value="chatrooms"><ChatRoomsTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -212,6 +221,51 @@ function NoticesTab() {
         ))}
         {notices.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No notices yet.</p>}
       </div>
+    </div>
+  );
+}
+
+function ChatRoomsTab() {
+  const [rooms, setRooms] = useState<ChatRoomRow[]>([]);
+
+  const fetchRooms = async () => {
+    const { data } = await supabase.from("chat_rooms").select("*").order("created_at", { ascending: false });
+    if (data) setRooms(data);
+  };
+
+  useEffect(() => { fetchRooms(); }, []);
+
+  const deleteRoom = async (id: string) => {
+    if (!confirm("Delete this chat room and all its messages?")) return;
+    await supabase.from("chat_rooms").delete().eq("id", id);
+    await fetchRooms();
+  };
+
+  return (
+    <div className="mt-4">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Room Name</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rooms.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-medium">{r.name}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{format(new Date(r.created_at), "MMM d, yyyy")}</TableCell>
+              <TableCell className="text-right">
+                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => deleteRoom(r.id)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {rooms.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No chat rooms.</p>}
     </div>
   );
 }
