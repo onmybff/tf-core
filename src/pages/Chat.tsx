@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, Plus, ArrowLeft } from "lucide-react";
+import { Send, Plus, ArrowLeft, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 interface ChatRoom {
@@ -12,6 +12,12 @@ interface ChatRoom {
   name: string;
   created_by: string;
   created_at: string;
+}
+
+interface RoomWithMeta extends ChatRoom {
+  message_count: number;
+  last_message: string | null;
+  last_message_at: string | null;
 }
 
 interface Message {
@@ -23,16 +29,46 @@ interface Message {
   profiles: { display_name: string } | null;
 }
 
+const ACCESS_CODE = "NOW_";
+
 export default function Chat() {
-  const { user } = useAuth();
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const { user, isAdmin } = useAuth();
+  const [rooms, setRooms] = useState<RoomWithMeta[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [roomName, setRoomName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState(false);
 
   const fetchRooms = async () => {
-    const { data } = await supabase.from("chat_rooms").select("*").order("created_at", { ascending: false });
-    if (data) setRooms(data);
+    const { data: roomsData } = await supabase.from("chat_rooms").select("*").order("created_at", { ascending: false });
+    if (!roomsData) return;
+
+    const roomsWithMeta: RoomWithMeta[] = await Promise.all(
+      roomsData.map(async (room) => {
+        const { count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("room_id", room.id);
+
+        const { data: lastMsg } = await supabase
+          .from("messages")
+          .select("content, created_at")
+          .eq("room_id", room.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        return {
+          ...room,
+          message_count: count ?? 0,
+          last_message: lastMsg?.[0]?.content ?? null,
+          last_message_at: lastMsg?.[0]?.created_at ?? null,
+        };
+      })
+    );
+
+    setRooms(roomsWithMeta);
   };
 
   useEffect(() => { fetchRooms(); }, []);
@@ -46,20 +82,53 @@ export default function Chat() {
     await fetchRooms();
   };
 
+  const handleCodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (codeInput === ACCESS_CODE) {
+      setAccessGranted(true);
+      setCodeError(false);
+    } else {
+      setCodeError(true);
+    }
+  };
+
+  if (!accessGranted) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-8 animate-fade-in">
+        <Lock className="h-8 w-8 text-muted-foreground mb-4" />
+        <h1 className="font-display text-xl font-bold mb-2">Chat Access</h1>
+        <p className="text-sm text-muted-foreground mb-6">Enter the access code to continue</p>
+        <form onSubmit={handleCodeSubmit} className="flex gap-2 w-full max-w-xs">
+          <Input
+            placeholder="Access code"
+            value={codeInput}
+            onChange={(e) => { setCodeInput(e.target.value); setCodeError(false); }}
+            className={codeError ? "border-destructive" : ""}
+            autoComplete="off"
+          />
+          <Button type="submit" size="sm">Enter</Button>
+        </form>
+        {codeError && <p className="mt-2 text-xs text-destructive">Invalid code</p>}
+      </div>
+    );
+  }
+
   if (selectedRoom) {
-    return <RoomChat room={selectedRoom} onBack={() => setSelectedRoom(null)} />;
+    return <RoomChat room={selectedRoom} onBack={() => { setSelectedRoom(null); fetchRooms(); }} />;
   }
 
   return (
     <div className="mx-auto max-w-2xl p-6 animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Chat Rooms</h1>
-        <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
-          <Plus className="mr-1 h-4 w-4" /> New Room
-        </Button>
+        {isAdmin && (
+          <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+            <Plus className="mr-1 h-4 w-4" /> New Room
+          </Button>
+        )}
       </div>
 
-      {showCreate && (
+      {showCreate && isAdmin && (
         <Card className="mb-4">
           <CardContent className="pt-6">
             <form onSubmit={handleCreateRoom} className="flex gap-2">
@@ -75,12 +144,22 @@ export default function Chat() {
         {rooms.map((room) => (
           <Card key={room.id} className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setSelectedRoom(room)}>
             <CardContent className="py-4">
-              <h3 className="font-medium text-sm">{room.name}</h3>
-              <p className="text-xs text-muted-foreground">{format(new Date(room.created_at), "MMM d, yyyy")}</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-sm">{room.name}</h3>
+                <span className="text-[10px] text-muted-foreground">
+                  {room.last_message_at ? format(new Date(room.last_message_at), "MMM d, HH:mm") : format(new Date(room.created_at), "MMM d, yyyy")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground truncate max-w-[70%]">
+                  {room.last_message ?? "No messages yet"}
+                </p>
+                <span className="text-[10px] text-muted-foreground">{room.message_count} msgs</span>
+              </div>
             </CardContent>
           </Card>
         ))}
-        {rooms.length === 0 && <p className="text-center text-sm text-muted-foreground py-12">No chat rooms yet. Create one!</p>}
+        {rooms.length === 0 && <p className="text-center text-sm text-muted-foreground py-12">No chat rooms yet.</p>}
       </div>
     </div>
   );
