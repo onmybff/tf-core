@@ -51,12 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
-        await fetchProfile(u.id);
-        await fetchRole(u.id);
+        try {
+          await fetchProfile(u.id);
+          await fetchRole(u.id);
+        } catch (e) {
+          console.error("Error fetching user data:", e);
+        }
       } else {
         setProfile(null);
         setIsAdmin(false);
@@ -64,17 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u) {
-        fetchProfile(u.id);
-        fetchRole(u.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
